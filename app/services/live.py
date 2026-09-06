@@ -19,6 +19,7 @@ _last_run: Dict[str, Any] = {
     "status": "starting",
     "at": None,
     "events_ingested": 0,
+    "stock_info": {},
 }
 
 
@@ -69,6 +70,7 @@ async def ingest_loop() -> None:
                 "at": datetime.now(timezone.utc).isoformat(),
                 "events_ingested": result.get("events_ingested", 0),
                 "stocks_scanned": result.get("stocks_scanned", []),
+                "stock_info": result.get("stock_info", {}),
             })
             await publish({"type": "ingest", **_last_run})
             logger.info(

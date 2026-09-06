@@ -25,11 +25,18 @@ class Settings(BaseSettings):
         "ITC.NS": "ITC Limited",
         "SBIN.NS": "State Bank of India",
         "LT.NS": "Larsen Toubro",
+        "BIRLASOFT": "Birlasoft",
+        "BSOFT.NS": "Birlasoft",
         "AAPL": "Apple",
         "MSFT": "Microsoft",
         "GOOGL": "Google Alphabet",
         "TSLA": "Tesla",
         "AMZN": "Amazon",
+    }
+
+    YAHOO_SYMBOL_MAP: Dict[str, str] = {
+        "NIFTY": "^NSEI",
+        "BIRLASOFT": "BSOFT.NS",
     }
 
 

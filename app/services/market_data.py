@@ -13,6 +13,8 @@ from typing import Any, Dict, List
 
 import yfinance as yf
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +47,8 @@ def fetch_price_events(
         Raw event dicts with keys expected by ``tag_event()``.
     """
     try:
-        ticker = yf.Ticker(stock_id)
+        yahoo_symbol = settings.YAHOO_SYMBOL_MAP.get(stock_id.upper(), stock_id)
+        ticker = yf.Ticker(yahoo_symbol)
         hist = ticker.history(period=period, interval=interval)
         if hist.empty:
             hist = ticker.history(period="5d", interval="1d")
@@ -110,7 +113,8 @@ def fetch_stock_info(stock_id: str) -> Dict[str, Any]:
     Finance.  Useful for display purposes and for enriching news queries.
     """
     try:
-        ticker = yf.Ticker(stock_id)
+        yahoo_symbol = settings.YAHOO_SYMBOL_MAP.get(stock_id.upper(), stock_id)
+        ticker = yf.Ticker(yahoo_symbol)
         info = ticker.info or {}
         return {
             "short_name": info.get("shortName", stock_id),

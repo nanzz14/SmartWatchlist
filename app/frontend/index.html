@@ -133,6 +133,8 @@
     font-size:13px; color: var(--text-muted); margin:0;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
+  .price-line{ font-size:12px; color:var(--text); margin-top:7px; }
+  .price-line .price-time{ color:var(--text-faint); margin-left:5px; }
   .card-right{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
   .status-dot{ width:9px; height:9px; border-radius:50%; }
   .status-dot.relevant{ background: var(--green); box-shadow:0 0 0 3px var(--green-dim); }
@@ -234,7 +236,12 @@
     border-radius:10px; padding:11px 12px; color: var(--text); font-size:14px;
     font-family: inherit; resize: vertical;
   }
-  .field input:focus, .field textarea:focus{ outline:none; border-color: var(--green); }
+  .field select{
+    width:100%; background: var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:11px 12px; color: var(--text); font-size:14px;
+    font-family: inherit;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus{ outline:none; border-color: var(--green); }
   .field .hint{ font-size:11.5px; color: var(--text-faint); margin-top:5px; }
   .sheet-actions{ display:flex; gap:10px; margin-top: 6px; }
   .sheet-actions .pill-btn{ flex:1; justify-content:center; }
@@ -309,7 +316,9 @@
 
       <div class="field">
         <label>Ticker</label>
-        <input id="tickerInput" placeholder="e.g. RELIANCE.NS" />
+        <select id="tickerInput" required>
+          <option value="">Loading supported stocks…</option>
+        </select>
       </div>
       <div class="field">
         <label>Why are you adding this?</label>
@@ -354,6 +363,8 @@
   let API_BASE = (location.protocol === "file:") ? "http://localhost:8000" : "";
   let theses = [];               // [{id, stock_id, tags, free_text, last_reviewed_at}]
   let digestCache = {};          // stock_id -> digest object
+  let stockSnapshots = {};
+  let stockOptions = [];
   let activeThesis = null;
 
   const $ = (id) => document.getElementById(id);
@@ -427,6 +438,19 @@
     theses.forEach(fetchDigestFor);
   }
 
+  async function loadStockOptions(){
+    const select = $("tickerInput");
+    try{
+      stockOptions = await api("/thesis/options");
+      select.innerHTML = '<option value="">Select a stock</option>' + stockOptions.map(option =>
+        `<option value="${escapeHtml(option.stock_id)}">${escapeHtml(option.label)} (${escapeHtml(option.stock_id)})</option>`
+      ).join("");
+    }catch(err){
+      select.innerHTML = '<option value="">Unable to load stock list</option>';
+      showError(err.message);
+    }
+  }
+
   function renderList(){
     list.innerHTML = "";
     emptyState.style.display = theses.length === 0 ? "flex" : "none";
@@ -446,6 +470,7 @@
             ${tagsHtml}
           </div>
           <p class="reason-preview">${escapeHtml(t.free_text || "No reason given")}</p>
+          <div class="price-line" data-price-line>${snapshotHtml(t.stock_id)}</div>
         </div>
         <div class="card-right">
           <span class="status-dot loading" data-status-dot></span>
@@ -455,6 +480,30 @@
       card.addEventListener("click", () => openDetail(t));
       list.appendChild(card);
     });
+  }
+
+  function snapshotHtml(stockId){
+    const snapshot = stockSnapshots[stockId] || {};
+    const price = snapshot.current_price;
+    if(price == null) return "Price unavailable";
+    const currency = snapshot.currency ? " " + snapshot.currency : "";
+    return escapeHtml(String(price) + currency) + '<span class="price-time">live snapshot</span>';
+  }
+
+  function renderSnapshots(){
+    theses.forEach(t => {
+      const line = list.querySelector(`.card[data-stock-id="${cssEscape(t.stock_id)}"] [data-price-line]`);
+      if(line) line.innerHTML = snapshotHtml(t.stock_id);
+    });
+  }
+
+  async function loadLiveStatus(){
+    try{
+      const status = await api("/live/status");
+      stockSnapshots = status.stock_info || {};
+      renderSnapshots();
+    }catch(_){
+    }
   }
 
   async function fetchDigestFor(t){
@@ -580,9 +629,13 @@
     try{
       const updated = await api("/thesis/" + activeThesis.id + "/mark-reviewed", { method: "POST" });
       activeThesis.last_reviewed_at = updated.last_reviewed_at;
+      digestCache[activeThesis.stock_id] = null;
       $("sinceText").innerHTML = "Checked <b>just now</b>";
       const idx = theses.findIndex(t => t.id === activeThesis.id);
       if(idx >= 0) theses[idx].last_reviewed_at = updated.last_reviewed_at;
+      const rows = await api("/digest/?user_id=1&stock_id=" + encodeURIComponent(activeThesis.stock_id));
+      digestCache[activeThesis.stock_id] = rows[0];
+      renderDetailBody(rows[0]);
     }catch(err){
       showError(err.message);
     }
@@ -596,11 +649,11 @@
   $("addOverlay").addEventListener("click", (e) => { if(e.target.id === "addOverlay") $("addOverlay").classList.remove("show"); });
 
   $("saveAddBtn").addEventListener("click", async () => {
-    const stock_id = $("tickerInput").value.trim();
+    const stock_id = $("tickerInput").value;
     const free_text = $("reasonInput").value.trim();
     const tagsRaw = $("tagsInput").value.trim();
     if(!stock_id || !free_text){
-      showError("A ticker and a reason are both required — that reason is what the digest measures events against.");
+      showError("Choose a supported stock and provide a reason.");
       return;
     }
     const tags = tagsRaw ? tagsRaw.split(",").map(s => s.trim()).filter(Boolean) : [];
@@ -675,6 +728,8 @@
         let payload = {};
         try{ payload = JSON.parse(e.data || "{}"); }catch(_){ return; }
         if(payload.type === "ingest"){
+          stockSnapshots = payload.stock_info || stockSnapshots;
+          renderSnapshots();
           loadWatchlist();
           if(activeThesis) openDetail(activeThesis);
         }
@@ -687,6 +742,8 @@
 
   // ---------------- init ----------------
   loadWatchlist();
+  loadStockOptions();
+  loadLiveStatus();
   connectLive();
 })();
 </script>
