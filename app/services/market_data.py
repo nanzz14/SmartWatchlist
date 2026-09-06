@@ -18,9 +18,10 @@ logger = logging.getLogger(__name__)
 
 def fetch_price_events(
     stock_id: str,
-    period: str = "5d",
-    pct_threshold: float = 2.0,
+    period: str = "1d",
+    pct_threshold: float = 0.4,
     volume_spike_ratio: float = 1.3,
+    interval: str = "1m",
 ) -> List[Dict[str, Any]]:
     """
     Fetch recent price & volume data from Yahoo Finance and detect
@@ -45,7 +46,10 @@ def fetch_price_events(
     """
     try:
         ticker = yf.Ticker(stock_id)
-        hist = ticker.history(period=period)
+        hist = ticker.history(period=period, interval=interval)
+        if hist.empty:
+            hist = ticker.history(period="5d", interval="1d")
+            pct_threshold = max(pct_threshold, 1.5)
     except Exception as exc:
         logger.warning("yfinance error for %s: %s", stock_id, exc)
         return []
@@ -53,6 +57,10 @@ def fetch_price_events(
     if hist.empty or len(hist) < 2:
         logger.info("No sufficient history for %s", stock_id)
         return []
+
+    # Keep the latest window so 1-minute bars don't flood the digest
+    if interval == "1m" and len(hist) > 90:
+        hist = hist.iloc[-90:]
 
     avg_volume = hist["Volume"].mean()
     events: List[Dict[str, Any]] = []

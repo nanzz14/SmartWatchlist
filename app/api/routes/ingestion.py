@@ -23,11 +23,31 @@ from app.services.tagging import tag_event
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
 
 
+def _is_duplicate(db: Session, tagged: dict) -> bool:
+    payload = tagged.get("payload") or {}
+    headline = payload.get("headline")
+    recent = (
+        db.query(Event)
+        .filter(
+            Event.stock_id == tagged["stock_id"],
+            Event.type == tagged["type"],
+        )
+        .order_by(Event.id.desc())
+        .limit(50)
+        .all()
+    )
+    if headline:
+        return any((e.payload or {}).get("headline") == headline for e in recent)
+    ts = tagged.get("timestamp")
+    if ts is None:
+        return False
+    return any(e.timestamp == ts for e in recent)
+
+
 def _process_raw_events(raw_events: list, db: Session) -> list:
-    """Tag, store, and score a batch of raw event dicts."""
+    """Tag, store, and score a batch of raw event dicts. Skips duplicates."""
     results = []
     for raw in raw_events:
-        # Convert ISO timestamp strings back to datetime objects
         ts = raw.get("timestamp")
         if isinstance(ts, str):
             try:
@@ -36,11 +56,13 @@ def _process_raw_events(raw_events: list, db: Session) -> list:
                 raw["timestamp"] = datetime.now(timezone.utc)
 
         tagged = tag_event(raw)
+        if _is_duplicate(db, tagged):
+            continue
+
         event = Event(**tagged)
         db.add(event)
         db.flush()
 
-        # Score against all theses watching this stock
         theses = (
             db.query(Thesis)
             .join(WatchlistItem)
@@ -72,37 +94,26 @@ def _process_raw_events(raw_events: list, db: Session) -> list:
     return results
 
 
-@router.post("/run")
-def run_ingestion(db: Session = Depends(get_db)):
-    """
-    Trigger a full ingestion cycle:
-    1. Find all unique stocks in the watchlist
-    2. Fetch price events from Yahoo Finance
-    3. Fetch news from RSS feeds
-    4. Tag + score every event
-    """
-    # Get all unique watchlisted stock IDs
+def run_ingestion_cycle(db: Session) -> dict:
+    """Fetch + tag + score for every watchlisted stock."""
     stock_ids = [
         row[0]
         for row in db.query(WatchlistItem.stock_id).distinct().all()
     ]
 
     if not stock_ids:
-        return {"status": "no_watchlist", "message": "No stocks in watchlist"}
+        return {
+            "status": "no_watchlist",
+            "message": "No stocks in watchlist",
+            "events_ingested": 0,
+        }
 
     all_raw: list = []
     stock_info_map: dict = {}
 
     for sid in stock_ids:
-        # Price events from yfinance
-        price_events = fetch_price_events(sid, period="5d")
-        all_raw.extend(price_events)
-
-        # News events from RSS
-        news_events = fetch_news_events(sid, max_items=5)
-        all_raw.extend(news_events)
-
-        # Grab stock info for the response
+        all_raw.extend(fetch_price_events(sid))
+        all_raw.extend(fetch_news_events(sid, max_items=5))
         stock_info_map[sid] = fetch_stock_info(sid)
 
     results = _process_raw_events(all_raw, db)
@@ -116,12 +127,17 @@ def run_ingestion(db: Session = Depends(get_db)):
     }
 
 
+@router.post("/run")
+def run_ingestion(db: Session = Depends(get_db)):
+    return run_ingestion_cycle(db)
+
+
 @router.post("/stock/{stock_id}")
 def ingest_single_stock(stock_id: str, db: Session = Depends(get_db)):
     """Ingest data for a single stock (on-demand)."""
     stock_id = stock_id.upper()
 
-    price_events = fetch_price_events(stock_id, period="5d")
+    price_events = fetch_price_events(stock_id)
     news_events = fetch_news_events(stock_id, max_items=5)
     all_raw = price_events + news_events
 

@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     RELEVANT_SCORE_THRESHOLD: float = 0.6
     HIGH_CONFIDENCE_THRESHOLD: float = 0.8
 
+    # Auto-ingest loop (hackathon "live" refresh)
+    INGEST_INTERVAL_SECONDS: int = 45
+
     # Map Yahoo Finance tickers → human-readable names for RSS search
     STOCK_NAME_MAP: Dict[str, str] = {
         "RELIANCE.NS": "Reliance Industries",

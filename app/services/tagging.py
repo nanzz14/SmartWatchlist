@@ -28,6 +28,10 @@ def tag_event(raw: Dict[str, Any]) -> Dict[str, Any]:
             event_type = "price_move"
             magnitude = pct
             tags = ["price_move"]
+        elif pct >= 0.35:
+            event_type = "price_move"
+            magnitude = pct
+            tags = ["price_move"]
 
     # ----- Earnings -----
     elif "eps_surprise_pct" in payload:
