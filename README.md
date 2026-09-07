@@ -13,80 +13,11 @@ Traditional watchlists show you a wall of tickers and numbers. Smart Watchlist r
 
 ---
 
-## Screenshots
-
-### Ranked Watchlist
-Stocks are scored and sorted by the intelligence engine. The top card is highlighted — each card shows signal badges, a contextual headline, 52-week range, and a sparkline.
-
-![Ranked watchlist view](docs/screenshots/watchlist-ranked.png)
-
-### Stock Detail
-Tap into any stock for a full breakdown: 52-week range bar, current vs previous close, momentum classification, volume delta, and support level.
-
-![Stock detail view](docs/screenshots/stock-detail.png)
-
-### Smart Signal
-The intelligence engine generates a contextual headline and suggests a price trigger based on the stock's current situation.
-
-![Smart signal card](docs/screenshots/smart-signal.png)
-
-### Set Price Alert
-Turn any smart signal into a persistent watch condition — set a trigger price, choose direction (at-or-below / at-or-above), and the alert fires when the condition is met.
-
-![Set price alert dialog](docs/screenshots/set-alert.png)
-
----
-
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        Browser (Client)                          │
-│                                                                  │
-│  ┌─────────────┐   ┌─────────────────────────────────────────┐   │
-│  │ Universe.ts  │   │     useMarket Hook                      │   │
-│  │ 30 NSE + US  │──▶│  fetch → 60s auto-refresh               │   │
-│  │ tickers      │   │                                         │   │
-│  └─────────────┘   └────────────┬────────────────────────────┘   │
-│                                 │ raw Quote[]                    │
-│                    ┌────────────▼────────────────────┐            │
-│                    │   Intelligence Engine (TS)       │            │
-│                    │   rankWatchlist · analyzeQuote   │            │
-│                    │   9 signal types · scoring       │            │
-│                    │   headlines · smart triggers     │            │
-│                    └────────────┬────────────────────┘            │
-│                                 │ ranked Analysis[]              │
-│                    ┌────────────▼────────────────────┐            │
-│                    │         React UI                 │            │
-│                    │  App · StockCard · StockDetail   │            │
-│                    │  AddBar · AlertsRail · Header    │            │
-│                    └────────────┬────────────────────┘            │
-│                                 │ persist / hydrate              │
-│                    ┌────────────▼────────────────────┐            │
-│                    │     LocalStorage Store           │            │
-│                    │  watchlist · thesis · zones ·    │            │
-│                    │  alerts                          │            │
-│                    └────────────────────────────────┘            │
-└────────────────────────┬─────────────────────────────────────────┘
-         JSON (quotes)   │   POST (symbols, zones)
-                         │
-┌────────────────────────▼─────────────────────────────────────────┐
-│                   FastAPI Backend (Data Proxy)                    │
-│                                                                  │
-│  ┌───────────┐   ┌────────────┐   ┌──────────────────────┐      │
-│  │ main.py   │   │ config.py  │   │ market_data.py       │      │
-│  │ CORS +    │   │ ticker     │   │ fetch · compute ·    │      │
-│  │ routing   │   │ maps       │   │ cache (TTL=120s)     │      │
-│  └───────────┘   └────────────┘   └──────────┬───────────┘      │
-│                                              │ cache miss        │
-└──────────────────────────────────────────────┼───────────────────┘
-                                               │
-                                   ┌───────────▼───────────┐
-                                   │   Yahoo Finance       │
-                                   │   yfinance · 1Y daily │
-                                   │   OHLCV DataFrame     │
-                                   └───────────────────────┘
-```
+<p align="center">
+  <img src="docs/screenshots/architecture.png" width="420" />
+</p>
 
 ---
 
@@ -355,8 +286,3 @@ Tailwind v4's CSS-native theme engine (`@theme`) eliminates the need for `tailwi
 | Data Source | Yahoo Finance via `yfinance` |
 | Caching | In-memory dict with 120s TTL |
 
----
-
-## License
-
-MIT
