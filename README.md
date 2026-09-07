@@ -13,6 +13,30 @@ Traditional watchlists show you a wall of tickers and numbers. Smart Watchlist r
 
 ---
 
+## Screenshots
+
+### Ranked Watchlist
+Stocks are scored and sorted by the intelligence engine. The top card is highlighted — each card shows signal badges, a contextual headline, 52-week range, and a sparkline.
+
+![Ranked watchlist view](docs/screenshots/watchlist-ranked.png)
+
+### Stock Detail
+Tap into any stock for a full breakdown: 52-week range bar, current vs previous close, momentum classification, volume delta, and support level.
+
+![Stock detail view](docs/screenshots/stock-detail.png)
+
+### Smart Signal
+The intelligence engine generates a contextual headline and suggests a price trigger based on the stock's current situation.
+
+![Smart signal card](docs/screenshots/smart-signal.png)
+
+### Set Price Alert
+Turn any smart signal into a persistent watch condition — set a trigger price, choose direction (at-or-below / at-or-above), and the alert fires when the condition is met.
+
+![Set price alert dialog](docs/screenshots/set-alert.png)
+
+---
+
 ## Architecture
 
 ```
