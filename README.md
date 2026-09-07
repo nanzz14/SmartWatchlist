@@ -6,17 +6,17 @@ Traditional watchlists show you a wall of tickers and numbers. Smart Watchlist r
 
 ---
 
-## Demo
+## Product UI
 
-> **Backend** → `http://localhost:8000` (FastAPI)  
-> **Frontend** → `http://localhost:5173` (Vite + React)
+<p align="center"> <img src="docs/screenshots/watchlist-ranked.png" width="23%" /> <img src="docs/screenshots/stock-detail.png" width="23%" /> <img src="docs/screenshots/smart-signal.png" width="23%" /> <img src="docs/screenshots/set-alert.png" width="23%" /> </p>
+
+<p align="center"> <em>Watchlist &nbsp;•&nbsp; Stock Detail &nbsp;•&nbsp; Smart Signal &nbsp;•&nbsp; Set Alert</em> </p>
 
 ---
-
 ## Architecture
 
 <p align="center">
-  <img src="docs/screenshots/architecture.png" width="420" />
+  <img src="docs/screenshots/architecture.png" width="320" />
 </p>
 
 ---
